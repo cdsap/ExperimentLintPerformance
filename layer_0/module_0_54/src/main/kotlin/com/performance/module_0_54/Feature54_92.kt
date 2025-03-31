@@ -1,0 +1,5 @@
+package com.performance.module_0_54
+
+fun String.feature54Extension10(): String {
+    return this.uppercase()
+}

@@ -1,0 +1,7 @@
+package com.performance.module_0_63
+
+class Feature63DataSource0 {
+    suspend fun fetchData(): String {
+        return "Data from source 0"
+    }
+}

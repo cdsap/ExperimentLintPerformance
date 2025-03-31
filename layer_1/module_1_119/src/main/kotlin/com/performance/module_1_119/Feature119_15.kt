@@ -1,0 +1,7 @@
+package com.performance.module_1_119
+
+class Feature119DataMapper1 {
+    fun map(data: String): String {
+        return data.uppercase()
+    }
+}
