@@ -35,4 +35,4 @@ jobs:
             - name: Check build-logic
               run: ./gradlew lintDebug
               env:
-                  GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_TOKEN }}
+                  GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
