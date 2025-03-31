@@ -1,0 +1,38 @@
+name: Build
+
+on:
+    push:
+        branches:
+            - master
+    pull_request:
+
+concurrency:
+    group: build-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    test_and_apk:
+        name: "Local tests and APKs"
+        runs-on: ubuntu-latest
+
+        permissions:
+            contents: write
+            pull-requests: write
+            security-events: write
+
+        timeout-minutes: 60
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up JDK 17
+              uses: actions/setup-java@v4
+              with:
+                  distribution: 'zulu'
+                  java-version: 17
+
+            - name: Check build-logic
+              run: ./gradlew lintDebug
+              env:
+                  GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_TOKEN }}
