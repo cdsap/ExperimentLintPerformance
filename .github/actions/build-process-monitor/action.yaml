@@ -34,87 +34,45 @@ runs:
                 exit 1
               fi
 
-        - name: Register post script
-          id: register_post
-          shell: bash
-          run: |
-              # Create post-monitor script
-              cat << 'EOF' > post-monitor.sh
-              #!/bin/bash
-              echo "Stopping Java memory monitor..."
-              if [[ -f monitor.pid ]]; then
-                MONITOR_PID=$(cat monitor.pid)
-                echo "Found monitor PID: $MONITOR_PID"
-                if kill -0 $MONITOR_PID 2>/dev/null; then
-                  echo "Monitor is still running, stopping it..."
-                  kill $MONITOR_PID || true
-                  sleep 1
-                  if kill -0 $MONITOR_PID 2>/dev/null; then
-                    echo "Monitor still running, forcing kill..."
-                    kill -9 $MONITOR_PID || true
-                  fi
-                fi
-                rm monitor.pid
-              fi
+    post: |
+        #!/bin/bash
+        echo "Stopping Java memory monitor..."
+        if [[ -f monitor.pid ]]; then
+          MONITOR_PID=$(cat monitor.pid)
+          echo "Found monitor PID: $MONITOR_PID"
+          if kill -0 $MONITOR_PID 2>/dev/null; then
+            echo "Monitor is still running, stopping it..."
+            kill $MONITOR_PID || true
+            sleep 1
+            if kill -0 $MONITOR_PID 2>/dev/null; then
+              echo "Monitor still running, forcing kill..."
+              kill -9 $MONITOR_PID || true
+            fi
+          fi
+          rm monitor.pid
+        fi
 
-              # Ensure we have write access to the summary file
-              if [[ -n "$GITHUB_STEP_SUMMARY" ]]; then
-                echo "### Java Memory Monitor Summary" > "$GITHUB_STEP_SUMMARY"
-                if [[ -f java_mem_monitor.log ]]; then
-                  echo "Last 20 lines of memory monitoring:" >> "$GITHUB_STEP_SUMMARY"
-                  # Add a header to make the output more readable
-                  echo "```" >> "$GITHUB_STEP_SUMMARY"
-                  tail -n 20 java_mem_monitor.log >> "$GITHUB_STEP_SUMMARY"
-                  echo "```" >> "$GITHUB_STEP_SUMMARY"
-                  
-                  # Add a summary of all unique processes found
-                  echo -e "\n### Processes Monitored" >> "$GITHUB_STEP_SUMMARY"
-                  echo "```" >> "$GITHUB_STEP_SUMMARY"
-                  grep "|" java_mem_monitor.log | awk -F'|' '{print $3}' | sort | uniq -c | sort -nr >> "$GITHUB_STEP_SUMMARY"
-                  echo "```" >> "$GITHUB_STEP_SUMMARY"
-                else
-                  echo "No monitoring log found" >> "$GITHUB_STEP_SUMMARY"
-                fi
-              else
-                echo "Warning: GITHUB_STEP_SUMMARY is not set"
-              fi
+        # Ensure we have write access to the summary file
+        if [[ -n "$GITHUB_STEP_SUMMARY" ]]; then
+          echo "### Java Memory Monitor Summary" > "$GITHUB_STEP_SUMMARY"
+          if [[ -f java_mem_monitor.log ]]; then
+            echo "Last 20 lines of memory monitoring:" >> "$GITHUB_STEP_SUMMARY"
+            # Add a header to make the output more readable
+            echo "```" >> "$GITHUB_STEP_SUMMARY"
+            tail -n 20 java_mem_monitor.log >> "$GITHUB_STEP_SUMMARY"
+            echo "```" >> "$GITHUB_STEP_SUMMARY"
+            
+            # Add a summary of all unique processes found
+            echo -e "\n### Processes Monitored" >> "$GITHUB_STEP_SUMMARY"
+            echo "```" >> "$GITHUB_STEP_SUMMARY"
+            grep "|" java_mem_monitor.log | awk -F'|' '{print $3}' | sort | uniq -c | sort -nr >> "$GITHUB_STEP_SUMMARY"
+            echo "```" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No monitoring log found" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        else
+          echo "Warning: GITHUB_STEP_SUMMARY is not set"
+        fi
 
-              mkdir -p logs
-              mv java_mem_monitor.log logs/ || true
-              EOF
-
-              chmod +x post-monitor.sh
-              POST_SCRIPT_PATH="$(pwd)/post-monitor.sh"
-              
-              # Create display summary script
-              cat << 'EOF' > display-summary.sh
-              #!/bin/bash
-              if [[ -f "$GITHUB_STEP_SUMMARY" ]]; then
-                cat "$GITHUB_STEP_SUMMARY"
-              else
-                echo "No summary file found at $GITHUB_STEP_SUMMARY"
-              fi
-              EOF
-
-              chmod +x display-summary.sh
-              DISPLAY_SUMMARY_PATH="$(pwd)/display-summary.sh"
-
-              # Register both scripts as post-job steps using environment files
-              {
-                echo "post_script<<EOF"
-                cat "$POST_SCRIPT_PATH"
-                echo "EOF"
-                echo "post_script_path=$POST_SCRIPT_PATH"
-                echo "post_script_executable=true"
-                echo "post_script_condition=always()"
-                echo "display_summary_script<<EOF"
-                cat "$DISPLAY_SUMMARY_PATH"
-                echo "EOF"
-                echo "display_summary_path=$DISPLAY_SUMMARY_PATH"
-                echo "display_summary_executable=true"
-                echo "display_summary_condition=always()"
-              } >> $GITHUB_ENV
-
-              # Add masks for the script paths
-              echo "::add-mask::$POST_SCRIPT_PATH"
-              echo "::add-mask::$DISPLAY_SUMMARY_PATH"
+        mkdir -p logs
+        mv java_mem_monitor.log logs/ || true
