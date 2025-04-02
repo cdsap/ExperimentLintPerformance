@@ -16,6 +16,7 @@ runs:
               chmod +x ${{ github.action_path }}/monitor.sh
               nohup ${{ github.action_path }}/monitor.sh "${{ inputs.interval }}" > java_mem_monitor.log 2>&1 &
               echo $! > monitor.pid
+              echo "::set-output name=monitor_pid::$!"
 
         - name: Register post script
           shell: bash
@@ -46,14 +47,17 @@ runs:
               EOF
 
               chmod +x post-monitor.sh
-              echo "::save-state name=monitorPostScript::post-monitor.sh"
+              echo "::set-output name=post_script_path::$(pwd)/post-monitor.sh"
 
         - name: Execute post-monitor script
           shell: bash
           if: always()
           run: |
-            if [[ -f "$(cat $GITHUB_STATE | grep monitorPostScript | cut -d= -f2)" ]]; then
+            POST_SCRIPT="${{ steps.register_post.outputs.post_script_path }}"
+            if [[ -f "$POST_SCRIPT" ]]; then
               ./post-monitor.sh
+            else
+              echo "Post script not found at $POST_SCRIPT"
             fi
 
         - name: Display Summary
