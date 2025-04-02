@@ -4,6 +4,9 @@ INTERVAL="${1:-5}"
 PATTERNS=("GradleDaemon" "KotlinCompileDaemon" "GradleWorkerMain")
 LOG_FILE="java_mem_monitor.log"
 
+# Create PID file
+echo $$ > monitor.pid
+
 echo "Starting memory monitor at $(date)" > "$LOG_FILE"
 echo "Timestamp | PID | Name | Heap_Used_MB | Heap_Capacity_MB | RSS_MB" >> "$LOG_FILE"
 
