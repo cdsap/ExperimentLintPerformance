@@ -25,16 +25,28 @@ runs:
               echo "Stopping Java memory monitor..."
               if [[ -f monitor.pid ]]; then
                 kill "$(cat monitor.pid)" || true
+                rm monitor.pid
               fi
 
               echo "### Java Memory Monitor Summary" >> $GITHUB_STEP_SUMMARY
-              tail -n 20 java_mem_monitor.log >> $GITHUB_STEP_SUMMARY
+              if [[ -f java_mem_monitor.log ]]; then
+                echo "Last 20 lines of memory monitoring:" >> $GITHUB_STEP_SUMMARY
+                tail -n 20 java_mem_monitor.log >> $GITHUB_STEP_SUMMARY
+              else
+                echo "No monitoring log found" >> $GITHUB_STEP_SUMMARY
+              fi
 
               mkdir -p logs
-              mv java_mem_monitor.log logs/
-
-              # Optional: upload via artifact action here if wanted
+              mv java_mem_monitor.log logs/ || true
               EOF
 
               chmod +x post-monitor.sh
               echo "::save-state name=monitorPostScript::post-monitor.sh"
+
+        - name: Execute post-monitor script
+          shell: bash
+          if: always()
+          run: |
+            if [[ -f "$(cat $GITHUB_STATE | grep monitorPostScript | cut -d= -f2)" ]]; then
+              ./post-monitor.sh
+            fi
