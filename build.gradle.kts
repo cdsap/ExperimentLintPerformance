@@ -17,16 +17,16 @@ gcReport {
     logs = listOf("gradle_gc.log")
 }
 
-//allprojects {
-//    RegistrationAction1(
-//        project,
-//        2,
-//    ).execute()
-//    tasks.withType<AndroidLintAnalysisTask>().configureEach {
-//        usesService(getBuildService(
-//            project.gradle.sharedServices,
-//            FooBuildService::class.java,
-//        ))
-//    }
-//}
+allprojects {
+    RegistrationAction1(
+        project,
+        3,
+    ).execute()
+    tasks.withType<AndroidLintAnalysisTask>().configureEach {
+        usesService(getBuildService(
+            project.gradle.sharedServices,
+            FooBuildService::class.java,
+        ))
+    }
+}
 

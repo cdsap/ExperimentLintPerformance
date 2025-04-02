@@ -2,21 +2,22 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import * as fs from 'fs';
 import * as path from 'path';
+import { DefaultArtifactClient, UploadArtifactOptions } from '@actions/artifact';
 
 async function run(): Promise<void> {
     try {
         core.info('Starting Java memory monitor cleanup...');
-        
+
         // Stop monitor if running
         if (fs.existsSync('monitor.pid')) {
             const pid = parseInt(fs.readFileSync('monitor.pid', 'utf8'), 10);
             core.info(`Found monitor PID: ${pid}`);
-            
+
             try {
                 process.kill(pid, 0);
                 core.info('Monitor is still running, stopping it...');
                 process.kill(pid);
-                
+
                 // Wait a bit and check if still running
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 try {
@@ -29,23 +30,23 @@ async function run(): Promise<void> {
             } catch (error) {
                 // Process already terminated
             }
-            
+
             fs.unlinkSync('monitor.pid');
         }
 
         // Generate summary
         if (process.env.GITHUB_STEP_SUMMARY) {
             let summary = '### Java Memory Monitor Summary\n';
-            
+
             if (fs.existsSync('java_mem_monitor.log')) {
                 const logContent = fs.readFileSync('java_mem_monitor.log', 'utf8');
                 const lines = logContent.split('\n');
-                
+
                 // Add last 20 lines
                 summary += 'Last 20 lines of memory monitoring:\n```\n';
                 summary += lines.slice(-20).join('\n');
                 summary += '\n```\n';
-                
+
                 // Track processes and their max RSS
                 const processes = new Map<string, { count: number; maxRss: number }>();
                 lines.forEach(line => {
@@ -68,7 +69,7 @@ async function run(): Promise<void> {
                         }
                     }
                 });
-                
+
                 // Add process summary with max RSS
                 summary += '\n### Processes Monitored\n```\n';
                 Array.from(processes.entries())
@@ -78,16 +79,45 @@ async function run(): Promise<void> {
                         summary += `${data.count} ${process} (max RSS: ${rssMB}MB)\n`;
                     });
                 summary += '```\n';
+
+                // Upload log file as artifact
+                try {
+                    const artifactClient = new DefaultArtifactClient();
+                    const artifactName = 'java-memory-monitor-log';
+                    const files = ['java_mem_monitor.log'];
+                    const rootDirectory = process.cwd();
+                    const options: UploadArtifactOptions = {
+                        retentionDays: undefined
+                    };
+
+                    const uploadResponse = await artifactClient.uploadArtifact(
+                        artifactName,
+                        files,
+                        rootDirectory,
+                        options
+                    );
+
+                    summary += `\n### Full Log File\n`;
+                    summary += `The complete log file has been uploaded as an artifact named '${artifactName}'\n`;
+                    summary += `You can download it from the Actions tab of this workflow run.\n`;
+                    if (uploadResponse.size !== undefined) {
+                        summary += `Artifact size: ${(uploadResponse.size / 1024).toFixed(2)}KB\n`;
+                    }
+                } catch (error) {
+                    core.warning(`Failed to upload log file as artifact: ${error}`);
+                    summary += `\n### Full Log File\n`;
+                    summary += `Failed to upload the log file as an artifact.\n`;
+                }
             } else {
                 summary += 'No monitoring log found\n';
             }
-            
+
             fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
         } else {
             core.warning('GITHUB_STEP_SUMMARY is not set');
         }
 
-        // Move log file
+        // Move log file to logs directory
         if (fs.existsSync('java_mem_monitor.log')) {
             const logsDir = 'logs';
             if (!fs.existsSync(logsDir)) {
@@ -103,4 +133,4 @@ async function run(): Promise<void> {
     }
 }
 
-run(); 
+run();
