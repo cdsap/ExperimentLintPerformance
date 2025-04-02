@@ -84,24 +84,27 @@ runs:
 
               chmod +x post-monitor.sh
               echo "post_script_path=$(pwd)/post-monitor.sh" >> $GITHUB_OUTPUT
+              
+              # Register the post script as a post-job step
+              echo "::add-mask::${{ steps.register_post.outputs.post_script_path }}"
+              echo "::set-output name=post_script::$(cat ${{ steps.register_post.outputs.post_script_path }})"
+              echo "::set-output name=post_script_path::${{ steps.register_post.outputs.post_script_path }}"
+              echo "::set-output name=post_script_executable::true"
+              echo "::set-output name=post_script_condition::always()"
 
-        - name: Execute post-monitor script
-          id: post_monitor
-          shell: bash
-          if: always()
-          run: |
-            if [[ -f "${{ steps.register_post.outputs.post_script_path }}" ]]; then
-              "${{ steps.register_post.outputs.post_script_path }}"
-            else
-              echo "Post script not found at ${{ steps.register_post.outputs.post_script_path }}"
-            fi
+              # Register display summary as a post-job step
+              cat << 'EOF' > display-summary.sh
+              #!/bin/bash
+              if [[ -f "$GITHUB_STEP_SUMMARY" ]]; then
+                cat "$GITHUB_STEP_SUMMARY"
+              else
+                echo "No summary file found at $GITHUB_STEP_SUMMARY"
+              fi
+              EOF
 
-        - name: Display Summary
-          shell: bash
-          if: always()
-          run: |
-            if [[ -f "$GITHUB_STEP_SUMMARY" ]]; then
-              cat "$GITHUB_STEP_SUMMARY"
-            else
-              echo "No summary file found at $GITHUB_STEP_SUMMARY"
-            fi
+              chmod +x display-summary.sh
+              echo "::add-mask::$(pwd)/display-summary.sh"
+              echo "::set-output name=display_summary_script::$(cat $(pwd)/display-summary.sh)"
+              echo "::set-output name=display_summary_path::$(pwd)/display-summary.sh"
+              echo "::set-output name=display_summary_executable::true"
+              echo "::set-output name=display_summary_condition::always()"
