@@ -38,6 +38,7 @@ runs:
           id: register_post
           shell: bash
           run: |
+              # Create post-monitor script
               cat << 'EOF' > post-monitor.sh
               #!/bin/bash
               echo "Stopping Java memory monitor..."
@@ -83,16 +84,9 @@ runs:
               EOF
 
               chmod +x post-monitor.sh
-              echo "post_script_path=$(pwd)/post-monitor.sh" >> $GITHUB_OUTPUT
+              POST_SCRIPT_PATH="$(pwd)/post-monitor.sh"
               
-              # Register the post script as a post-job step
-              echo "::add-mask::${{ steps.register_post.outputs.post_script_path }}"
-              echo "::set-output name=post_script::$(cat ${{ steps.register_post.outputs.post_script_path }})"
-              echo "::set-output name=post_script_path::${{ steps.register_post.outputs.post_script_path }}"
-              echo "::set-output name=post_script_executable::true"
-              echo "::set-output name=post_script_condition::always()"
-
-              # Register display summary as a post-job step
+              # Create display summary script
               cat << 'EOF' > display-summary.sh
               #!/bin/bash
               if [[ -f "$GITHUB_STEP_SUMMARY" ]]; then
@@ -103,8 +97,24 @@ runs:
               EOF
 
               chmod +x display-summary.sh
-              echo "::add-mask::$(pwd)/display-summary.sh"
-              echo "::set-output name=display_summary_script::$(cat $(pwd)/display-summary.sh)"
-              echo "::set-output name=display_summary_path::$(pwd)/display-summary.sh"
-              echo "::set-output name=display_summary_executable::true"
-              echo "::set-output name=display_summary_condition::always()"
+              DISPLAY_SUMMARY_PATH="$(pwd)/display-summary.sh"
+
+              # Register both scripts as post-job steps using environment files
+              {
+                echo "post_script<<EOF"
+                cat "$POST_SCRIPT_PATH"
+                echo "EOF"
+                echo "post_script_path=$POST_SCRIPT_PATH"
+                echo "post_script_executable=true"
+                echo "post_script_condition=always()"
+                echo "display_summary_script<<EOF"
+                cat "$DISPLAY_SUMMARY_PATH"
+                echo "EOF"
+                echo "display_summary_path=$DISPLAY_SUMMARY_PATH"
+                echo "display_summary_executable=true"
+                echo "display_summary_condition=always()"
+              } >> $GITHUB_ENV
+
+              # Add masks for the script paths
+              echo "::add-mask::$POST_SCRIPT_PATH"
+              echo "::add-mask::$DISPLAY_SUMMARY_PATH"
