@@ -10,7 +10,7 @@ inputs:
 runs:
     using: "node20"
     main: "dist/index.js"
-    post: 'dist/cleanup.js'
+    post: "dist/cleanup.js"
 
 dependencies:
     - name: "@actions/core"
