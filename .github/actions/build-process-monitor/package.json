@@ -4,7 +4,7 @@
   "description": "Java memory monitor for GitHub Actions",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build index.ts -o dist && ncc build cleanup.ts -o dist && cp monitor.sh dist/ && chmod +x dist/monitor.sh",
+    "build": "rm -rf dist && mkdir -p dist && ncc build index.ts -o dist && mv dist/index.js dist/index.js && ncc build cleanup.ts -o dist && mv dist/index.js dist/cleanup.js && cp monitor.sh dist/ && chmod +x dist/monitor.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

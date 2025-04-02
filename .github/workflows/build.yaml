@@ -40,5 +40,3 @@ jobs:
                 touch .build_complete
               env:
                   GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
-            - uses: ./.github/actions/build-process-monitor-cleanup
-              if: always()                  
