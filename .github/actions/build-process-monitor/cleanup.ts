@@ -49,15 +49,23 @@ async function run(): Promise<void> {
                 // Track processes and their max RSS
                 const processes = new Map<string, { count: number; maxRss: number }>();
                 lines.forEach(line => {
-                    const match = line.match(/\|([^|]+)\|([^|]+)\|/);
+                    // Match the process name and RSS value
+                    const match = line.match(/\|([^|]+)\s+[^|]+\|([^|]+)\|([^|]+)\|/);
                     if (match) {
                         const process = match[1].trim();
-                        const rss = parseInt(match[2].trim(), 10);
-                        const current = processes.get(process) || { count: 0, maxRss: 0 };
-                        processes.set(process, {
-                            count: current.count + 1,
-                            maxRss: Math.max(current.maxRss, rss)
-                        });
+                        const rssStr = match[3].trim();
+                        // Extract numeric value from RSS string (e.g., "1234 KB" -> 1234)
+                        const rssMatch = rssStr.match(/(\d+)/);
+                        if (rssMatch) {
+                            const rss = parseInt(rssMatch[1], 10);
+                            if (!isNaN(rss)) {
+                                const current = processes.get(process) || { count: 0, maxRss: 0 };
+                                processes.set(process, {
+                                    count: current.count + 1,
+                                    maxRss: Math.max(current.maxRss, rss)
+                                });
+                            }
+                        }
                     }
                 });
                 
