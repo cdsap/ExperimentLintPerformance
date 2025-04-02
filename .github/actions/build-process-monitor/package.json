@@ -4,7 +4,7 @@
   "description": "Tracks memory usage of Gradle/Kotlin daemons during the job",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r node_modules dist/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
