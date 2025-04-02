@@ -13,15 +13,25 @@ runs:
         - name: Start Java memory monitor
           shell: bash
           run: |
-              echo "1"
               chmod +x ${{ github.action_path }}/monitor.sh
-              echo "2"
               nohup ${{ github.action_path }}/monitor.sh "${{ inputs.interval }}" > java_mem_monitor.log 2>&1 &
-              echo $! > "$GITHUB_ENV_MONITOR_PID"
-              echo "32"
+              echo $! > monitor.pid
 
-              echo "GITHUB_ENV_MONITOR_PID=$!" >> "$GITHUB_ENV"
-
-        - name: Register post action
+        - name: Register post cleanup step
           shell: bash
-          run: echo "${{ github.action_path }}/post.sh" >> $GITHUB_ENV_MONITOR_CLEANUP_SCRIPT
+          run: |
+              cat << 'EOF' > post-monitor.sh
+              #!/bin/bash
+              echo "Stopping Java memory monitor..."
+              if [[ -f monitor.pid ]]; then
+                kill "$(cat monitor.pid)" || true
+              fi
+
+              echo "### Java Memory Monitor Summary" >> $GITHUB_STEP_SUMMARY
+              tail -n 20 java_mem_monitor.log >> $GITHUB_STEP_SUMMARY
+
+              mkdir -p logs
+              mv java_mem_monitor.log logs/
+              EOF
+              chmod +x post-monitor.sh
+              echo "post-monitor.sh" >> $GITHUB_STATE
