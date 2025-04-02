@@ -13,8 +13,11 @@ runs:
         - name: Start Java memory monitor
           shell: bash
           run: |
+              echo "1"
               chmod +x ${{ github.action_path }}/monitor.sh
+              echo "2"
               nohup ${{ github.action_path }}/monitor.sh "${{ inputs.interval }}" > java_mem_monitor.log 2>&1 &
+              echo "31"
               echo $! > "$GITHUB_ENV_MONITOR_PID"
               echo "GITHUB_ENV_MONITOR_PID=$!" >> "$GITHUB_ENV"
 
