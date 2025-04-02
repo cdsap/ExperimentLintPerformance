@@ -28,12 +28,17 @@ runs:
                 rm monitor.pid
               fi
 
-              echo "### Java Memory Monitor Summary" >> $GITHUB_STEP_SUMMARY
-              if [[ -f java_mem_monitor.log ]]; then
-                echo "Last 20 lines of memory monitoring:" >> $GITHUB_STEP_SUMMARY
-                tail -n 20 java_mem_monitor.log >> $GITHUB_STEP_SUMMARY
+              # Ensure we have write access to the summary file
+              if [[ -n "$GITHUB_STEP_SUMMARY" ]]; then
+                echo "### Java Memory Monitor Summary" > "$GITHUB_STEP_SUMMARY"
+                if [[ -f java_mem_monitor.log ]]; then
+                  echo "Last 20 lines of memory monitoring:" >> "$GITHUB_STEP_SUMMARY"
+                  tail -n 20 java_mem_monitor.log >> "$GITHUB_STEP_SUMMARY"
+                else
+                  echo "No monitoring log found" >> "$GITHUB_STEP_SUMMARY"
+                fi
               else
-                echo "No monitoring log found" >> $GITHUB_STEP_SUMMARY
+                echo "Warning: GITHUB_STEP_SUMMARY is not set"
               fi
 
               mkdir -p logs
@@ -49,4 +54,14 @@ runs:
           run: |
             if [[ -f "$(cat $GITHUB_STATE | grep monitorPostScript | cut -d= -f2)" ]]; then
               ./post-monitor.sh
+            fi
+
+        - name: Display Summary
+          shell: bash
+          if: always()
+          run: |
+            if [[ -f "$GITHUB_STEP_SUMMARY" ]]; then
+              cat "$GITHUB_STEP_SUMMARY"
+            else
+              echo "No summary file found at $GITHUB_STEP_SUMMARY"
             fi
