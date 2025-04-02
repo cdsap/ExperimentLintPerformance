@@ -11,14 +11,16 @@ runs:
     using: "composite"
     steps:
         - name: Start Java memory monitor
+          id: monitor_start
           shell: bash
           run: |
               chmod +x ${{ github.action_path }}/monitor.sh
               nohup ${{ github.action_path }}/monitor.sh "${{ inputs.interval }}" > java_mem_monitor.log 2>&1 &
               echo $! > monitor.pid
-              echo "::set-output name=monitor_pid::$!"
+              echo "monitor_pid=$!" >> $GITHUB_OUTPUT
 
         - name: Register post script
+          id: register_post
           shell: bash
           run: |
               cat << 'EOF' > post-monitor.sh
@@ -47,17 +49,17 @@ runs:
               EOF
 
               chmod +x post-monitor.sh
-              echo "::set-output name=post_script_path::$(pwd)/post-monitor.sh"
+              echo "post_script_path=$(pwd)/post-monitor.sh" >> $GITHUB_OUTPUT
 
         - name: Execute post-monitor script
+          id: post_monitor
           shell: bash
           if: always()
           run: |
-            POST_SCRIPT="${{ steps.register_post.outputs.post_script_path }}"
-            if [[ -f "$POST_SCRIPT" ]]; then
-              ./post-monitor.sh
+            if [[ -f "${{ steps.register_post.outputs.post_script_path }}" ]]; then
+              "${{ steps.register_post.outputs.post_script_path }}"
             else
-              echo "Post script not found at $POST_SCRIPT"
+              echo "Post script not found at ${{ steps.register_post.outputs.post_script_path }}"
             fi
 
         - name: Display Summary
