@@ -17,7 +17,7 @@ runs:
               nohup ${{ github.action_path }}/monitor.sh "${{ inputs.interval }}" > java_mem_monitor.log 2>&1 &
               echo $! > monitor.pid
 
-        - name: Register post cleanup step
+        - name: Register post script
           shell: bash
           run: |
               cat << 'EOF' > post-monitor.sh
@@ -32,6 +32,9 @@ runs:
 
               mkdir -p logs
               mv java_mem_monitor.log logs/
+
+              # Optional: upload via artifact action here if wanted
               EOF
+
               chmod +x post-monitor.sh
-              echo "post-monitor.sh" >> $GITHUB_STATE
+              echo "::save-state name=monitorPostScript::post-monitor.sh"
