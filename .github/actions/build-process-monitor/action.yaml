@@ -1,0 +1,23 @@
+name: "Java Memory Monitor"
+description: "Tracks memory usage of Gradle/Kotlin daemons during the job"
+
+inputs:
+    interval:
+        description: "Polling interval in seconds"
+        required: false
+        default: "5"
+
+runs:
+    using: "composite"
+    steps:
+        - name: Start Java memory monitor
+          shell: bash
+          run: |
+              chmod +x ${{ github.action_path }}/monitor.sh
+              nohup ${{ github.action_path }}/monitor.sh "${{ inputs.interval }}" > java_mem_monitor.log 2>&1 &
+              echo $! > "$GITHUB_ENV_MONITOR_PID"
+              echo "GITHUB_ENV_MONITOR_PID=$!" >> "$GITHUB_ENV"
+
+        - name: Register post action
+          shell: bash
+          run: echo "${{ github.action_path }}/post.sh" >> $GITHUB_ENV_MONITOR_CLEANUP_SCRIPT
