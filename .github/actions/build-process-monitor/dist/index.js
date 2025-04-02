@@ -25643,7 +25643,7 @@ module.exports = {
 
 /***/ }),
 
-/***/ 98:
+/***/ 7162:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -25683,45 +25683,79 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
-const exec = __importStar(__nccwpck_require__(5236));
 const fs = __importStar(__nccwpck_require__(9896));
 const path = __importStar(__nccwpck_require__(6928));
-const child_process_1 = __nccwpck_require__(5317);
 async function run() {
     try {
-        const interval = core.getInput('interval', { required: false }) || '5';
-        const monitorScript = path.join(__dirname, 'monitor.sh');
-        // Make monitor script executable
-        await exec.exec('chmod', ['+x', monitorScript]);
-        // Start monitor in background using spawn
-        const monitor = (0, child_process_1.spawn)('nohup', [monitorScript, interval], {
-            detached: true,
-            stdio: 'ignore'
-        });
-        // Unref the process to allow the parent to exit
-        monitor.unref();
-        // Wait a bit for the monitor to start and write its PID
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        // Get the PID from the monitor.pid file
-        if (!fs.existsSync('monitor.pid')) {
-            throw new Error('Monitor failed to create PID file');
-        }
-        const pid = parseInt(fs.readFileSync('monitor.pid', 'utf8'), 10);
-        core.setOutput('monitor_pid', pid);
-        // Verify monitor is running
-        try {
-            process.kill(pid, 0);
-            core.info(`Monitor started successfully with PID ${pid}`);
-            const { stdout } = await exec.getExecOutput('ps', ['-p', pid.toString(), '-o', 'command']);
-            core.info(stdout);
-        }
-        catch (error) {
-            core.error('Monitor failed to start properly');
-            if (fs.existsSync('java_mem_monitor.log')) {
-                core.error(fs.readFileSync('java_mem_monitor.log', 'utf8'));
+        core.info('Starting Java memory monitor cleanup...');
+        // Stop monitor if running
+        if (fs.existsSync('monitor.pid')) {
+            const pid = parseInt(fs.readFileSync('monitor.pid', 'utf8'), 10);
+            core.info(`Found monitor PID: ${pid}`);
+            try {
+                process.kill(pid, 0);
+                core.info('Monitor is still running, stopping it...');
+                process.kill(pid);
+                // Wait a bit and check if still running
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                try {
+                    process.kill(pid, 0);
+                    core.info('Monitor still running, forcing kill...');
+                    process.kill(pid, 'SIGKILL');
+                }
+                catch (error) {
+                    // Process already terminated
+                }
             }
-            throw error;
+            catch (error) {
+                // Process already terminated
+            }
+            fs.unlinkSync('monitor.pid');
         }
+        // Generate summary
+        if (process.env.GITHUB_STEP_SUMMARY) {
+            let summary = '### Java Memory Monitor Summary\n';
+            if (fs.existsSync('java_mem_monitor.log')) {
+                const logContent = fs.readFileSync('java_mem_monitor.log', 'utf8');
+                const lines = logContent.split('\n');
+                // Add last 20 lines
+                summary += 'Last 20 lines of memory monitoring:\n```\n';
+                summary += lines.slice(-20).join('\n');
+                summary += '\n```\n';
+                // Add process summary
+                const processes = new Map();
+                lines.forEach(line => {
+                    const match = line.match(/\|([^|]+)\|/);
+                    if (match) {
+                        const process = match[1].trim();
+                        processes.set(process, (processes.get(process) || 0) + 1);
+                    }
+                });
+                summary += '\n### Processes Monitored\n```\n';
+                Array.from(processes.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .forEach(([process, count]) => {
+                    summary += `${count} ${process}\n`;
+                });
+                summary += '```\n';
+            }
+            else {
+                summary += 'No monitoring log found\n';
+            }
+            fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+        }
+        else {
+            core.warning('GITHUB_STEP_SUMMARY is not set');
+        }
+        // Move log file
+        if (fs.existsSync('java_mem_monitor.log')) {
+            const logsDir = 'logs';
+            if (!fs.existsSync(logsDir)) {
+                fs.mkdirSync(logsDir);
+            }
+            fs.renameSync('java_mem_monitor.log', path.join(logsDir, 'java_mem_monitor.log'));
+        }
+        core.info('Java memory monitor cleanup completed successfully');
     }
     catch (error) {
         core.setFailed(error instanceof Error ? error.message : String(error));
@@ -27647,7 +27681,7 @@ module.exports = parseParams
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(98);
+/******/ 	var __webpack_exports__ = __nccwpck_require__(7162);
 /******/ 	module.exports = __webpack_exports__;
 /******/ 	
 /******/ })()
