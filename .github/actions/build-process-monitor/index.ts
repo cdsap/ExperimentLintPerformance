@@ -40,13 +40,12 @@ async function run(): Promise<void> {
             throw error;
         }
 
-        // Register cleanup handler
+        // Register cleanup handler for process events
         process.on('exit', async (code) => {
             await cleanup();
             process.exit(code);
         });
 
-        // Handle signals
         process.on('SIGINT', async () => {
             await cleanup();
             process.exit(0);
@@ -56,6 +55,24 @@ async function run(): Promise<void> {
             await cleanup();
             process.exit(0);
         });
+
+        // Register post-execution step
+        const postScript = path.join(__dirname, 'post-monitor.sh');
+        fs.writeFileSync(postScript, `#!/bin/bash
+if [ -f "monitor.pid" ]; then
+    pid=$(cat monitor.pid)
+    kill $pid 2>/dev/null || true
+    rm -f monitor.pid
+fi
+if [ -f "java_mem_monitor.log" ]; then
+    mkdir -p logs
+    mv java_mem_monitor.log logs/
+fi
+`);
+        await exec.exec('chmod', ['+x', postScript]);
+        core.setOutput('post_script_path', postScript);
+        core.setOutput('post_script_executable', 'true');
+        core.setOutput('post_script_condition', 'always()');
 
     } catch (error) {
         core.setFailed(error instanceof Error ? error.message : String(error));
