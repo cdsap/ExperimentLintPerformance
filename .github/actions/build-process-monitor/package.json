@@ -1,0 +1,18 @@
+{
+  "name": "build-process-monitor",
+  "version": "1.0.0",
+  "description": "Tracks memory usage of Gradle/Kotlin daemons during the job",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@actions/core": "^1.10.1",
+    "@actions/exec": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "typescript": "^5.3.3"
+  }
+} 

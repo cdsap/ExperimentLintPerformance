@@ -40,3 +40,14 @@ jobs:
                 touch .build_complete
               env:
                   GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
+
+        post-job:
+            - name: Cleanup and generate summary
+              if: always()
+              shell: bash
+              run: |
+                if [[ -n "$CLEANUP_SCRIPT" ]]; then
+                  "$CLEANUP_SCRIPT"
+                else
+                  echo "Warning: Cleanup script not found"
+                fi
