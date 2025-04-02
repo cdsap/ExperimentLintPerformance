@@ -4,7 +4,7 @@
   "description": "Tracks memory usage of Gradle/Kotlin daemons during the job",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build index.ts -o dist && cp monitor.sh dist/",
+    "build": "ncc build index.ts -o dist && cp monitor.sh dist/ && chmod +x dist/monitor.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
