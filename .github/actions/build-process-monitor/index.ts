@@ -13,14 +13,14 @@ async function run(): Promise<void> {
         // Make monitor script executable
         await exec.exec('chmod', ['+x', monitorScript]);
 
-        // Start monitor in background using nohup
-        const result = await exec.exec('nohup', [monitorScript, interval], {
-            silent: true
+        // Start monitor in background using spawn
+        const monitor = spawn('nohup', [monitorScript, interval], {
+            detached: true,
+            stdio: 'ignore'
         });
 
-        if (result !== 0) {
-            throw new Error(`Failed to start monitor: exit code ${result}`);
-        }
+        // Unref the process to allow the parent to exit
+        monitor.unref();
 
         // Wait a bit for the monitor to start and write its PID
         await new Promise(resolve => setTimeout(resolve, 2000));

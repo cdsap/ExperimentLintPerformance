@@ -25686,19 +25686,20 @@ const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
 const fs = __importStar(__nccwpck_require__(9896));
 const path = __importStar(__nccwpck_require__(6928));
+const child_process_1 = __nccwpck_require__(5317);
 async function run() {
     try {
         const interval = core.getInput('interval', { required: false }) || '5';
         const monitorScript = path.join(__dirname, 'monitor.sh');
         // Make monitor script executable
         await exec.exec('chmod', ['+x', monitorScript]);
-        // Start monitor in background using nohup
-        const result = await exec.exec('nohup', [monitorScript, interval], {
-            silent: true
+        // Start monitor in background using spawn
+        const monitor = (0, child_process_1.spawn)('nohup', [monitorScript, interval], {
+            detached: true,
+            stdio: 'ignore'
         });
-        if (result !== 0) {
-            throw new Error(`Failed to start monitor: exit code ${result}`);
-        }
+        // Unref the process to allow the parent to exit
+        monitor.unref();
         // Wait a bit for the monitor to start and write its PID
         await new Promise(resolve => setTimeout(resolve, 2000));
         // Get the PID from the monitor.pid file
