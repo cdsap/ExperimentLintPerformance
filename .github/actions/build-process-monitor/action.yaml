@@ -17,8 +17,9 @@ runs:
               chmod +x ${{ github.action_path }}/monitor.sh
               echo "2"
               nohup ${{ github.action_path }}/monitor.sh "${{ inputs.interval }}" > java_mem_monitor.log 2>&1 &
-              echo "31"
               echo $! > "$GITHUB_ENV_MONITOR_PID"
+              echo "32"
+
               echo "GITHUB_ENV_MONITOR_PID=$!" >> "$GITHUB_ENV"
 
         - name: Register post action
