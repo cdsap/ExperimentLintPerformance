@@ -3,6 +3,7 @@ import * as exec from '@actions/exec';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { spawn } from 'child_process';
 
 async function run(): Promise<void> {
     try {
@@ -12,17 +13,28 @@ async function run(): Promise<void> {
         // Make monitor script executable
         await exec.exec('chmod', ['+x', monitorScript]);
 
-        // Start monitor in background
-        const exitCode = await exec.exec('setsid', ['nohup', monitorScript, interval], {
-            silent: true
+        // Start monitor in background using spawn
+        const monitor = spawn('nohup', [monitorScript, interval], {
+            detached: true,
+            stdio: ['ignore', 'pipe', 'pipe']
         });
 
-        if (exitCode !== 0) {
-            throw new Error(`Failed to start monitor: exit code ${exitCode}`);
-        }
+        // Handle monitor output
+        monitor.stdout.on('data', (data) => {
+            core.info(`Monitor stdout: ${data}`);
+        });
+
+        monitor.stderr.on('data', (data) => {
+            core.error(`Monitor stderr: ${data}`);
+        });
+
+        // Wait a bit for the monitor to start and write its PID
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         // Get the PID from the monitor.pid file
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        if (!fs.existsSync('monitor.pid')) {
+            throw new Error('Monitor failed to create PID file');
+        }
         const pid = parseInt(fs.readFileSync('monitor.pid', 'utf8'), 10);
         core.setOutput('monitor_pid', pid);
 
