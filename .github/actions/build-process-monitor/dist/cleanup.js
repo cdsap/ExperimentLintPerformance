@@ -25722,20 +25722,27 @@ async function run() {
                 summary += 'Last 20 lines of memory monitoring:\n```\n';
                 summary += lines.slice(-20).join('\n');
                 summary += '\n```\n';
-                // Add process summary
+                // Track processes and their max RSS
                 const processes = new Map();
                 lines.forEach(line => {
-                    const match = line.match(/\|([^|]+)\|/);
+                    const match = line.match(/\|([^|]+)\|([^|]+)\|/);
                     if (match) {
                         const process = match[1].trim();
-                        processes.set(process, (processes.get(process) || 0) + 1);
+                        const rss = parseInt(match[2].trim(), 10);
+                        const current = processes.get(process) || { count: 0, maxRss: 0 };
+                        processes.set(process, {
+                            count: current.count + 1,
+                            maxRss: Math.max(current.maxRss, rss)
+                        });
                     }
                 });
+                // Add process summary with max RSS
                 summary += '\n### Processes Monitored\n```\n';
                 Array.from(processes.entries())
-                    .sort((a, b) => b[1] - a[1])
-                    .forEach(([process, count]) => {
-                    summary += `${count} ${process}\n`;
+                    .sort((a, b) => b[1].maxRss - a[1].maxRss)
+                    .forEach(([process, data]) => {
+                    const rssMB = (data.maxRss / 1024).toFixed(2);
+                    summary += `${data.count} ${process} (max RSS: ${rssMB}MB)\n`;
                 });
                 summary += '```\n';
             }
