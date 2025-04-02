@@ -4,7 +4,7 @@
   "description": "Tracks memory usage of Gradle/Kotlin daemons during the job",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && cp -r node_modules dist/",
+    "build": "ncc build index.ts -o dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.19",
+    "@vercel/ncc": "^0.38.1",
     "typescript": "^5.3.3"
   }
 } 
