@@ -13,20 +13,14 @@ async function run(): Promise<void> {
         // Make monitor script executable
         await exec.exec('chmod', ['+x', monitorScript]);
 
-        // Start monitor in background using spawn
-        const monitor = spawn('nohup', [monitorScript, interval], {
-            detached: true,
-            stdio: ['ignore', 'pipe', 'pipe']
+        // Start monitor in background using nohup
+        const result = await exec.exec('nohup', [monitorScript, interval], {
+            silent: true
         });
 
-        // Handle monitor output
-        monitor.stdout.on('data', (data) => {
-            core.info(`Monitor stdout: ${data}`);
-        });
-
-        monitor.stderr.on('data', (data) => {
-            core.error(`Monitor stderr: ${data}`);
-        });
+        if (result !== 0) {
+            throw new Error(`Failed to start monitor: exit code ${result}`);
+        }
 
         // Wait a bit for the monitor to start and write its PID
         await new Promise(resolve => setTimeout(resolve, 2000));
