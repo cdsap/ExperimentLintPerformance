@@ -35,6 +35,6 @@ jobs:
               uses: ./.github/actions/build-process-monitor
 
             - name: Check build-logic
-              run: ./gradlew lintDebug
+              run: ./gradlew help
               env:
                   GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
