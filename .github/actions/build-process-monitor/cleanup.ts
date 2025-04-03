@@ -47,8 +47,18 @@ function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]):
         left: 100    // Increased for y-axis labels
     };
 
-    // Calculate scales
-    const maxRss = Math.max(...Array.from(processes.values()).flatMap(p => p.rss));
+    // Calculate aggregated RSS first to determine true max value
+    const aggregatedRss = timestamps.map(timestamp => {
+        return Array.from(processes.values())
+            .filter(p => p.timestamps.includes(timestamp))
+            .reduce((sum, p) => sum + p.rss[p.timestamps.indexOf(timestamp)], 0);
+    });
+
+    // Calculate scales using max of individual processes and aggregated
+    const maxIndividualRss = Math.max(...Array.from(processes.values()).flatMap(p => p.rss));
+    const maxAggregatedRss = Math.max(...aggregatedRss);
+    const maxRss = Math.max(maxIndividualRss, maxAggregatedRss);
+    
     // Round up maxRss to nearest 1000 for better y-axis scale
     const yAxisMax = Math.ceil(maxRss / 1000) * 1000;
     const xScale = (width - margin.left - margin.right) / (timestamps.length - 1) || 1;
@@ -117,20 +127,13 @@ function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]):
                 font-size="14">${name}</text>\n`;
     });
 
-    // Calculate and draw aggregated RSS
-    const aggregatedRss = timestamps.map(timestamp => {
-        return Array.from(processes.values())
-            .filter(p => p.timestamps.includes(timestamp))
-            .reduce((sum, p) => sum + p.rss[p.timestamps.indexOf(timestamp)], 0);
-    });
-
+    // Draw aggregated line
     const aggregatedPoints = timestamps.map((timestamp, i) => {
         const x = margin.left + (i * xScale);
         const y = height - margin.bottom - (aggregatedRss[i] * yScale);
         return `${x},${y}`;
     }).join(' ');
 
-    // Draw aggregated line
     svg += `<polyline points="${aggregatedPoints}" stroke="black" stroke-width="2" 
             stroke-dasharray="5,5" fill="none" opacity="0.9"/>\n`;
 
