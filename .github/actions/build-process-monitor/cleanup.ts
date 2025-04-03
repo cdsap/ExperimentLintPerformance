@@ -40,25 +40,82 @@ function parseLogFile(logFile: string): { processes: Map<string, ProcessData>, t
 function generateMermaidChart(processes: Map<string, ProcessData>, timestamps: string[]): string {
     // Sample points to avoid overcrowding (show ~6 points)
     const interval = Math.ceil(timestamps.length / 6);
+    const sampledTimestamps = timestamps.filter((_, i) => i % interval === 0);
     
-    return `%%{init: {'theme': 'dark'}}%%
-graph LR
-    subgraph Memory["Memory Usage"]
+    // Approach 1: Timeline
+    const timelineChart = `%%{init: {'theme': 'dark'}}%%
+timeline
+    title Memory Usage Over Time
+    ${Array.from(processes.entries()).map(([name, data]) => {
+        const points = sampledTimestamps.map(timestamp => {
+            const idx = data.timestamps.indexOf(timestamp);
+            if (idx === -1) return null;
+            const rss = data.rss[idx];
+            return `${timestamp}: ${rss.toFixed(0)}MB`;
+        }).filter(Boolean).join('\n        ');
+        return `section ${name}
+        ${points}`;
+    }).join('\n    ')}`;
+
+    // Approach 2: State Diagram
+    const stateChart = `%%{init: {'theme': 'dark'}}%%
+stateDiagram-v2
+    direction LR
+    ${Array.from(processes.entries()).map(([name, data]) => {
+        const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
+        const states = sampledTimestamps.map((timestamp, i) => {
+            const idx = data.timestamps.indexOf(timestamp);
+            if (idx === -1) return null;
+            const rss = data.rss[idx];
+            return `    ${cleanName}_${i}: ${timestamp}<br/>${rss.toFixed(0)}MB`;
+        }).filter(Boolean).join('\n');
+        const transitions = sampledTimestamps.map((_, i) => {
+            if (i === 0) return '';
+            return `    ${cleanName}_${i-1} --> ${cleanName}_${i}`;
+        }).filter(Boolean).join('\n');
+        return `${states}\n${transitions}`;
+    }).join('\n')}`;
+
+    // Approach 3: Flowchart with Time Columns
+    const flowchartChart = `%%{init: {'theme': 'dark'}}%%
+flowchart LR
+    subgraph Time["Memory Usage Over Time"]
         direction TB
-        ${Array.from(processes.entries()).map(([name, data]) => {
-            const maxRss = Math.max(...data.rss);
-            const avgRss = data.rss.reduce((a, b) => a + b, 0) / data.rss.length;
-            const lastRss = data.rss[data.rss.length - 1];
-            const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
-            return `${cleanName}["${name}<br/>Current: ${lastRss.toFixed(0)}MB<br/>Max: ${maxRss.toFixed(0)}MB<br/>Avg: ${avgRss.toFixed(0)}MB"]`;
+        ${sampledTimestamps.map((timestamp, i) => {
+            return `    subgraph T${i}["${timestamp}"]
+            ${Array.from(processes.entries()).map(([name, data]) => {
+                const idx = data.timestamps.indexOf(timestamp);
+                if (idx === -1) return '';
+                const rss = data.rss[idx];
+                const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
+                return `        ${cleanName}_${i}["${name}<br/>${rss.toFixed(0)}MB"]`;
+            }).filter(Boolean).join('\n        ')}
+        end`;
         }).join('\n        ')}
     end
-    
-    classDef process fill:#4ECDC4,stroke:#333,stroke-width:2px
-    ${Array.from(processes.keys()).map(name => {
+
+    ${Array.from(processes.entries()).map(([name, data]) => {
         const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
-        return `class ${cleanName} process`;
+        return sampledTimestamps.map((_, i) => {
+            if (i === 0) return '';
+            return `    ${cleanName}_${i-1} --> ${cleanName}_${i}`;
+        }).filter(Boolean).join('\n    ');
     }).join('\n    ')}`;
+
+    return `### Timeline Approach
+\`\`\`mermaid
+${timelineChart}
+\`\`\`
+
+### State Diagram Approach
+\`\`\`mermaid
+${stateChart}
+\`\`\`
+
+### Flowchart Approach
+\`\`\`mermaid
+${flowchartChart}
+\`\`\``;
 }
 
 function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]): string {
