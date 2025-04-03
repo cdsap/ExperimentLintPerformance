@@ -42,42 +42,14 @@ function generateMermaidChart(processes: Map<string, ProcessData>, timestamps: s
     const interval = Math.ceil(timestamps.length / 6);
     const sampledTimestamps = timestamps.filter((_, i) => i % interval === 0);
     
-    // Approach 1: Timeline
-    const timelineChart = `%%{init: {'theme': 'dark'}}%%
-timeline
-    title Memory Usage Over Time
-    ${Array.from(processes.entries()).map(([name, data]) => {
-        const points = sampledTimestamps.map(timestamp => {
-            const idx = data.timestamps.indexOf(timestamp);
-            if (idx === -1) return null;
-            const rss = data.rss[idx];
-            return `${timestamp}: ${rss.toFixed(0)}MB`;
-        }).filter(Boolean).join('\n        ');
-        return `section ${name}
-        ${points}`;
-    }).join('\n    ')}`;
-
-    // Approach 2: State Diagram
-    const stateChart = `%%{init: {'theme': 'dark'}}%%
-stateDiagram-v2
-    direction LR
-    ${Array.from(processes.entries()).map(([name, data]) => {
-        const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
-        const states = sampledTimestamps.map((timestamp, i) => {
-            const idx = data.timestamps.indexOf(timestamp);
-            if (idx === -1) return null;
-            const rss = data.rss[idx];
-            return `    ${cleanName}_${i}: ${timestamp}<br/>${rss.toFixed(0)}MB`;
-        }).filter(Boolean).join('\n');
-        const transitions = sampledTimestamps.map((_, i) => {
-            if (i === 0) return '';
-            return `    ${cleanName}_${i-1} --> ${cleanName}_${i}`;
-        }).filter(Boolean).join('\n');
-        return `${states}\n${transitions}`;
-    }).join('\n')}`;
-
-    // Approach 3: Flowchart with Time Columns
-    const flowchartChart = `%%{init: {'theme': 'dark'}}%%
+    // Calculate aggregated RSS for each timestamp
+    const aggregatedRss = sampledTimestamps.map(timestamp => {
+        return Array.from(processes.values())
+            .filter(p => p.timestamps.includes(timestamp))
+            .reduce((sum, p) => sum + p.rss[p.timestamps.indexOf(timestamp)], 0);
+    });
+    
+    return `%%{init: {'theme': 'dark'}}%%
 flowchart LR
     subgraph Time["Memory Usage Over Time"]
         direction TB
@@ -90,32 +62,34 @@ flowchart LR
                 const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
                 return `        ${cleanName}_${i}["${name}<br/>${rss.toFixed(0)}MB"]`;
             }).filter(Boolean).join('\n        ')}
+            ${`        Agg_${i}["Aggregated<br/>${aggregatedRss[i].toFixed(0)}MB"]`}
         end`;
         }).join('\n        ')}
     end
 
     ${Array.from(processes.entries()).map(([name, data]) => {
         const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
-        return sampledTimestamps.map((_, i) => {
+        return sampledTimestamps.map((timestamp, i) => {
             if (i === 0) return '';
+            const prevIdx = data.timestamps.indexOf(sampledTimestamps[i-1]);
+            const currIdx = data.timestamps.indexOf(timestamp);
+            if (prevIdx === -1 || currIdx === -1) return '';
             return `    ${cleanName}_${i-1} --> ${cleanName}_${i}`;
         }).filter(Boolean).join('\n    ');
-    }).join('\n    ')}`;
+    }).join('\n    ')}
 
-    return `### Timeline Approach
-\`\`\`mermaid
-${timelineChart}
-\`\`\`
-
-### State Diagram Approach
-\`\`\`mermaid
-${stateChart}
-\`\`\`
-
-### Flowchart Approach
-\`\`\`mermaid
-${flowchartChart}
-\`\`\``;
+    ${sampledTimestamps.map((_, i) => {
+        if (i === 0) return '';
+        return `    Agg_${i-1} --> Agg_${i}`;
+    }).filter(Boolean).join('\n    ')}
+    
+    classDef process fill:#4ECDC4,stroke:#333,stroke-width:2px
+    classDef aggregated fill:#FF6B6B,stroke:#333,stroke-width:2px
+    ${Array.from(processes.keys()).map(name => {
+        const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
+        return `class ${cleanName} process`;
+    }).join('\n    ')}
+    ${sampledTimestamps.map((_, i) => `class Agg_${i} aggregated`).join('\n    ')}`;
 }
 
 function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]): string {
