@@ -7,11 +7,16 @@ LOG_FILE="java_mem_monitor.log"
 # Create PID file
 echo $$ > monitor.pid
 
+# Store start time
+START_TIME=$(date +%s)
+
 echo "Starting memory monitor at $(date)" > "$LOG_FILE"
-echo "Timestamp | PID | Name | Heap_Used_MB | Heap_Capacity_MB | RSS_MB" >> "$LOG_FILE"
+echo "Elapsed_Time | PID | Name | Heap_Used_MB | Heap_Capacity_MB | RSS_MB" >> "$LOG_FILE"
 
 while true; do
-  TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S")
+  CURRENT_TIME=$(date +%s)
+  ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+  TIMESTAMP=$(printf "%02d:%02d:%02d" $((ELAPSED_TIME/3600)) $((ELAPSED_TIME%3600/60)) $((ELAPSED_TIME%60)))
   jps_output=$(jps)
 
   while IFS= read -r line; do
