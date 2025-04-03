@@ -38,71 +38,143 @@ function parseLogFile(logFile: string): { processes: Map<string, ProcessData>, t
 }
 
 function generateMermaidChart(processes: Map<string, ProcessData>, timestamps: string[]): string {
-    // Sample points to avoid overcrowding (show ~8 points)
-    const interval = Math.ceil(timestamps.length / 8);
-    const sampledTimestamps = timestamps.filter((_, i) => i % interval === 0);
-
-    // Calculate ranges for better visualization
-    const maxRss = Math.max(...Array.from(processes.values()).flatMap(p => p.rss));
-    const minRss = Math.min(...Array.from(processes.values()).flatMap(p => p.rss));
+    // Sample points to avoid overcrowding (show ~6 points)
+    const interval = Math.ceil(timestamps.length / 6);
     
-    // Start Mermaid chart definition
-    let mermaid = `%%{init: {'theme': 'dark', 'themeVariables': { 'fontSize': '14px' }}}%%
-flowchart LR
-    subgraph Memory["Memory Usage Trend (MB)"]
-        direction TB\n`;
+    return `%%{init: {'theme': 'dark'}}%%
+graph LR
+    subgraph Memory["Memory Usage"]
+        direction TB
+        ${Array.from(processes.entries()).map(([name, data]) => {
+            const maxRss = Math.max(...data.rss);
+            const avgRss = data.rss.reduce((a, b) => a + b, 0) / data.rss.length;
+            const lastRss = data.rss[data.rss.length - 1];
+            const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
+            return `${cleanName}["${name}<br/>Current: ${lastRss.toFixed(0)}MB<br/>Max: ${maxRss.toFixed(0)}MB<br/>Avg: ${avgRss.toFixed(0)}MB"]`;
+        }).join('\n        ')}
+    end
+    
+    classDef process fill:#4ECDC4,stroke:#333,stroke-width:2px
+    ${Array.from(processes.keys()).map(name => {
+        const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
+        return `class ${cleanName} process`;
+    }).join('\n    ')}`;
+}
 
-    // Add memory scale on the left
-    const scaleSteps = 5;
-    const scaleStep = (maxRss - minRss) / scaleSteps;
-    for (let i = 0; i <= scaleSteps; i++) {
-        const value = Math.round(maxRss - (i * scaleStep));
-        mermaid += `        scale${i}["${value}MB"]\n`;
-    }
+function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]): string {
+    const width = 1400;  // Increased width
+    const height = 800;
+    const margin = {
+        top: 60,
+        right: 300,  // Increased for legend
+        bottom: 100,
+        left: 100    // Increased for y-axis labels
+    };
 
-    // Add connections between scale points
-    for (let i = 0; i < scaleSteps; i++) {
-        mermaid += `        scale${i} --- scale${i + 1}\n`;
-    }
-
-    // Process each data series
-    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1'];
-    Array.from(processes.entries()).forEach(([name, data], processIndex) => {
-        const sampledData = sampledTimestamps.map(timestamp => {
-            const idx = data.timestamps.indexOf(timestamp);
-            return idx !== -1 ? data.rss[idx] : null;
-        }).filter(v => v !== null);
-
-        // Add nodes for each data point
-        sampledData.forEach((rss, i) => {
-            const nodeId = `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${i}`;
-            mermaid += `        ${nodeId}["${rss.toFixed(0)}MB"]\n`;
-            // Style the node
-            mermaid += `        style ${nodeId} fill:${colors[processIndex]},color:white\n`;
-        });
-
-        // Connect the nodes
-        for (let i = 0; i < sampledData.length - 1; i++) {
-            const nodeId1 = `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${i}`;
-            const nodeId2 = `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${i + 1}`;
-            mermaid += `        ${nodeId1} --> ${nodeId2}\n`;
-        }
+    // Calculate aggregated RSS first to determine true max value
+    const aggregatedRss = timestamps.map(timestamp => {
+        return Array.from(processes.values())
+            .filter(p => p.timestamps.includes(timestamp))
+            .reduce((sum, p) => sum + p.rss[p.timestamps.indexOf(timestamp)], 0);
     });
 
-    mermaid += '    end\n\n';
+    // Calculate scales using max of individual processes and aggregated
+    const maxIndividualRss = Math.max(...Array.from(processes.values()).flatMap(p => p.rss));
+    const maxAggregatedRss = Math.max(...aggregatedRss);
+    const maxRss = Math.max(maxIndividualRss, maxAggregatedRss);
+    
+    // Round up maxRss to nearest 1000 for better y-axis scale
+    const yAxisMax = Math.ceil(maxRss / 1000) * 1000;
+    const xScale = (width - margin.left - margin.right) / (timestamps.length - 1) || 1;
+    const yScale = (height - margin.top - margin.bottom) / yAxisMax;
 
-    // Add legend
-    mermaid += '    subgraph Legend\n';
+    // Colors for different processes
+    const colors = ['#FF9B9B', '#4ECDC4', '#45B7D1'];
+
+    // Generate SVG content
+    let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">\n`;
+    
+    // Add title with better positioning
+    svg += `<text x="${width/2}" y="40" text-anchor="middle" font-size="24" font-weight="bold">Java Process Memory Usage Over Time</text>\n`;
+
+    // Add grid lines (every 500MB)
+    const gridInterval = 500; // MB
+    for (let i = 0; i <= yAxisMax; i += gridInterval) {
+        const y = height - margin.bottom - (i * yScale);
+        svg += `<line x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}" 
+                stroke="#e0e0e0" stroke-width="1" stroke-dasharray="5,5"/>\n`;
+    }
+
+    // Draw axes
+    svg += `<line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" 
+            stroke="black" stroke-width="2"/>\n`;
+    svg += `<line x1="${margin.left}" y1="${height - margin.bottom}" x2="${margin.left}" y2="${margin.top}" 
+            stroke="black" stroke-width="2"/>\n`;
+
+    // Draw Y axis labels (every 500MB)
+    for (let i = 0; i <= yAxisMax; i += gridInterval) {
+        const y = height - margin.bottom - (i * yScale);
+        svg += `<text x="${margin.left - 10}" y="${y + 5}" text-anchor="end" font-size="12">${i}MB</text>\n`;
+    }
+
+    // Draw X axis labels (dynamic interval based on timestamp count)
+    const labelInterval = Math.ceil(timestamps.length / 15); // Show ~15 labels
+    for (let i = 0; i < timestamps.length; i += labelInterval) {
+        const x = margin.left + (i * xScale);
+        svg += `<text x="${x}" y="${height - margin.bottom + 20}" 
+                transform="rotate(45 ${x},${height - margin.bottom + 20})" 
+                text-anchor="start" font-size="12">${timestamps[i]}</text>\n`;
+    }
+
+    // Create legend background
+    svg += `<rect x="${width - margin.right + 20}" y="${margin.top}" 
+            width="${margin.right - 40}" height="${processes.size * 30 + 40}" 
+            fill="white" stroke="#e0e0e0"/>\n`;
+
+    // Draw process lines and legend
     Array.from(processes.entries()).forEach(([name, data], idx) => {
-        const maxRss = Math.max(...data.rss);
-        const avgRss = data.rss.reduce((a, b) => a + b, 0) / data.rss.length;
-        const nodeId = `legend_${name.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        mermaid += `        ${nodeId}["${name}<br/>Max: ${maxRss.toFixed(0)}MB<br/>Avg: ${avgRss.toFixed(0)}MB"]\n`;
-        mermaid += `        style ${nodeId} fill:${colors[idx]},color:white\n`;
-    });
-    mermaid += '    end\n';
+        const points = data.timestamps.map((timestamp, i) => {
+            const x = margin.left + (timestamps.indexOf(timestamp) * xScale);
+            const y = height - margin.bottom - (data.rss[i] * yScale);
+            return `${x},${y}`;
+        }).join(' ');
 
-    return mermaid;
+        // Add line with slight opacity
+        svg += `<polyline points="${points}" stroke="${colors[idx % colors.length]}" 
+                stroke-width="2" fill="none" opacity="0.8"/>\n`;
+
+        // Add legend with better positioning
+        const legendY = margin.top + 30 + (idx * 30);
+        svg += `<rect x="${width - margin.right + 40}" y="${legendY - 10}" width="20" height="20" 
+                fill="${colors[idx % colors.length]}" opacity="0.8"/>\n`;
+        svg += `<text x="${width - margin.right + 70}" y="${legendY + 5}" 
+                font-size="14">${name}</text>\n`;
+    });
+
+    // Draw aggregated line
+    const aggregatedPoints = timestamps.map((timestamp, i) => {
+        const x = margin.left + (i * xScale);
+        const y = height - margin.bottom - (aggregatedRss[i] * yScale);
+        return `${x},${y}`;
+    }).join(' ');
+
+    svg += `<polyline points="${aggregatedPoints}" stroke="black" stroke-width="2" 
+            stroke-dasharray="5,5" fill="none" opacity="0.9"/>\n`;
+
+    // Add aggregated to legend
+    const legendY = margin.top + 30 + (processes.size * 30);
+    svg += `<rect x="${width - margin.right + 40}" y="${legendY - 10}" width="20" height="20" 
+            fill="black" opacity="0.9"/>\n`;
+    svg += `<text x="${width - margin.right + 70}" y="${legendY + 5}" 
+            font-size="14">Aggregated RSS</text>\n`;
+
+    // Add axis labels
+    svg += `<text x="${width/2}" y="${height - 10}" text-anchor="middle" font-size="16">Time</text>\n`;
+    svg += `<text x="${margin.left - 60}" y="${height/2}" text-anchor="middle" 
+            transform="rotate(-90 ${margin.left - 60},${height/2})" font-size="16">Memory Usage (MB)</text>\n`;
+
+    svg += '</svg>';
+    return svg;
 }
 
 async function run() {
@@ -120,13 +192,17 @@ async function run() {
         console.log('Generating memory usage graph...');
         const { processes, timestamps } = parseLogFile('java_mem_monitor.log');
         
-        // Generate Mermaid chart
+        // Generate both charts
         const mermaidChart = generateMermaidChart(processes, timestamps);
+        const svgContent = generateSvg(processes, timestamps);
 
-        // Upload log file as artifact
+        // Save SVG file
+        fs.writeFileSync('memory_usage.svg', svgContent);
+
+        // Upload artifacts
         const artifactClient = new DefaultArtifactClient();
         const artifactName = 'java-memory-monitor';
-        const files = ['java_mem_monitor.log'];
+        const files = ['java_mem_monitor.log', 'memory_usage.svg'];
         const rootDirectory = '.';
 
         console.log('Uploading artifacts...');
@@ -154,19 +230,23 @@ async function run() {
 - Monitoring duration: ${duration}
 
 ### Memory Usage Graph
+\`\`\`mermaid
 ${mermaidChart}
+\`\`\`
 
 ### Process Details
 ${Array.from(processes.entries()).map(([name, data]) => {
     const maxProcessRss = Math.max(...data.rss);
     const avgProcessRss = data.rss.reduce((a, b) => a + b, 0) / data.rss.length;
+    const lastRss = data.rss[data.rss.length - 1];
     return `#### ${name}
 - Maximum RSS: ${maxProcessRss.toFixed(2)} MB
 - Average RSS: ${avgProcessRss.toFixed(2)} MB
-- Number of measurements: ${data.rss.length}`;
+- Number of measurements: ${data.rss.length}
+- Last measurement: ${lastRss.toFixed(2)} MB`;
 }).join('\n\n')}
 
-> Note: The detailed log file is available in the artifacts of this workflow run.`;
+> Note: A detailed SVG graph and log file are available in the artifacts of this workflow run.`;
 
             fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, newSummary);
         }
