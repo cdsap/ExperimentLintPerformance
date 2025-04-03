@@ -38,44 +38,69 @@ function parseLogFile(logFile: string): { processes: Map<string, ProcessData>, t
 }
 
 function generateMermaidChart(processes: Map<string, ProcessData>, timestamps: string[]): string {
-    // Calculate time intervals for x-axis (we'll show fewer points for readability)
-    const timeInterval = Math.ceil(timestamps.length / 15); // Show ~15 points
-    const selectedTimestamps = timestamps.filter((_, i) => i % timeInterval === 0);
+    // Sample points to avoid overcrowding (show ~8 points)
+    const interval = Math.ceil(timestamps.length / 8);
+    const sampledTimestamps = timestamps.filter((_, i) => i % interval === 0);
 
+    // Calculate ranges for better visualization
+    const maxRss = Math.max(...Array.from(processes.values()).flatMap(p => p.rss));
+    const minRss = Math.min(...Array.from(processes.values()).flatMap(p => p.rss));
+    
     // Start Mermaid chart definition
-    let mermaid = `%%{init: {'theme': 'dark'}}%%
-xychart-beta
-    title "Java Process Memory Usage Over Time"
-    x-axis "${selectedTimestamps[0]}" --> "${selectedTimestamps[selectedTimestamps.length - 1]}" [Memory Usage (MB)]
-    y-axis "Memory (MB)" 0 --> ${Math.ceil(Math.max(...Array.from(processes.values()).flatMap(p => p.rss)) / 500) * 500}\n`;
+    let mermaid = `%%{init: {'theme': 'dark', 'themeVariables': { 'fontSize': '14px' }}}%%
+flowchart LR
+    subgraph Memory["Memory Usage Trend (MB)"]
+        direction TB\n`;
 
-    // Add each process as a line
-    Array.from(processes.entries()).forEach(([name, data], idx) => {
-        // Filter data points to match selected timestamps
-        const filteredData = selectedTimestamps.map(timestamp => {
-            const index = data.timestamps.indexOf(timestamp);
-            return index !== -1 ? data.rss[index] : null;
-        }).filter(val => val !== null);
+    // Add memory scale on the left
+    const scaleSteps = 5;
+    const scaleStep = (maxRss - minRss) / scaleSteps;
+    for (let i = 0; i <= scaleSteps; i++) {
+        const value = Math.round(maxRss - (i * scaleStep));
+        mermaid += `        scale${i}["${value}MB"]\n`;
+    }
 
-        // Add line data
-        mermaid += `    line ${name}\n`;
-        selectedTimestamps.forEach((_, i) => {
-            if (filteredData[i] !== undefined) {
-                mermaid += `        ${i} ${filteredData[i]}\n`;
-            }
+    // Add connections between scale points
+    for (let i = 0; i < scaleSteps; i++) {
+        mermaid += `        scale${i} --- scale${i + 1}\n`;
+    }
+
+    // Process each data series
+    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1'];
+    Array.from(processes.entries()).forEach(([name, data], processIndex) => {
+        const sampledData = sampledTimestamps.map(timestamp => {
+            const idx = data.timestamps.indexOf(timestamp);
+            return idx !== -1 ? data.rss[idx] : null;
+        }).filter(v => v !== null);
+
+        // Add nodes for each data point
+        sampledData.forEach((rss, i) => {
+            const nodeId = `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${i}`;
+            mermaid += `        ${nodeId}["${rss.toFixed(0)}MB"]\n`;
+            // Style the node
+            mermaid += `        style ${nodeId} fill:${colors[processIndex]},color:white\n`;
         });
+
+        // Connect the nodes
+        for (let i = 0; i < sampledData.length - 1; i++) {
+            const nodeId1 = `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${i}`;
+            const nodeId2 = `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${i + 1}`;
+            mermaid += `        ${nodeId1} --> ${nodeId2}\n`;
+        }
     });
 
-    // Calculate and add aggregated RSS
-    mermaid += `    line Aggregated RSS\n`;
-    selectedTimestamps.forEach((timestamp, i) => {
-        const total = Array.from(processes.values())
-            .reduce((sum, proc) => {
-                const idx = proc.timestamps.indexOf(timestamp);
-                return sum + (idx !== -1 ? proc.rss[idx] : 0);
-            }, 0);
-        mermaid += `        ${i} ${total}\n`;
+    mermaid += '    end\n\n';
+
+    // Add legend
+    mermaid += '    subgraph Legend\n';
+    Array.from(processes.entries()).forEach(([name, data], idx) => {
+        const maxRss = Math.max(...data.rss);
+        const avgRss = data.rss.reduce((a, b) => a + b, 0) / data.rss.length;
+        const nodeId = `legend_${name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        mermaid += `        ${nodeId}["${name}<br/>Max: ${maxRss.toFixed(0)}MB<br/>Avg: ${avgRss.toFixed(0)}MB"]\n`;
+        mermaid += `        style ${nodeId} fill:${colors[idx]},color:white\n`;
     });
+    mermaid += '    end\n';
 
     return mermaid;
 }
@@ -91,18 +116,17 @@ async function run() {
             console.log('No monitor process found to kill');
         }
 
-        // Parse log file and generate chart
+        // Parse log file
         console.log('Generating memory usage graph...');
         const { processes, timestamps } = parseLogFile('java_mem_monitor.log');
-        const mermaidChart = generateMermaidChart(processes, timestamps);
         
-        // Save chart for reference (optional)
-        fs.writeFileSync('memory_usage.mmd', mermaidChart);
+        // Generate Mermaid chart
+        const mermaidChart = generateMermaidChart(processes, timestamps);
 
-        // Upload artifacts
+        // Upload log file as artifact
         const artifactClient = new DefaultArtifactClient();
         const artifactName = 'java-memory-monitor';
-        const files = ['java_mem_monitor.log', 'memory_usage.mmd'];
+        const files = ['java_mem_monitor.log'];
         const rootDirectory = '.';
 
         console.log('Uploading artifacts...');
@@ -130,10 +154,7 @@ async function run() {
 - Monitoring duration: ${duration}
 
 ### Memory Usage Graph
-
-\`\`\`mermaid
 ${mermaidChart}
-\`\`\`
 
 ### Process Details
 ${Array.from(processes.entries()).map(([name, data]) => {
