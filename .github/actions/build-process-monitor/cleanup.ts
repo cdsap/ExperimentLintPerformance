@@ -164,24 +164,16 @@ async function run() {
             console.log('No monitor process found to kill');
         }
 
-        // Create artifacts directory
-        const artifactsDir = `${process.env.GITHUB_WORKSPACE}/artifacts`;
-        fs.mkdirSync(artifactsDir, { recursive: true });
-
         // Parse log file and generate SVG
         console.log('Generating memory usage graph...');
         const { processes, timestamps } = parseLogFile('java_mem_monitor.log');
         const svgContent = generateSvg(processes, timestamps);
         
-        // Save SVG to both locations
-        const svgPath = `${artifactsDir}/memory_usage.svg`;
+        // Save SVG file
         fs.writeFileSync('memory_usage.svg', svgContent);
-        fs.writeFileSync(svgPath, svgContent);
 
-        // Set output for the image path
-        if (process.env.GITHUB_OUTPUT) {
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `image_path=${svgPath}\n`);
-        }
+        // Set output for the image path using core.setOutput
+        core.setOutput('image_path', 'memory_usage.svg');
 
         // Upload artifacts
         const artifactClient = new DefaultArtifactClient();
@@ -214,7 +206,14 @@ async function run() {
 - Monitoring duration: ${duration}
 
 ### Memory Usage Graph
-![Memory Usage Graph](${svgPath})
+<details>
+<summary>Click to expand memory usage graph</summary>
+
+\`\`\`svg
+${svgContent}
+\`\`\`
+
+</details>
 
 ### Process Details
 ${Array.from(processes.entries()).map(([name, data]) => {
