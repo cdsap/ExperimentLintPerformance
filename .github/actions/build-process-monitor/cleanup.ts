@@ -24,13 +24,14 @@ function parseLogFile(logFile: string): { processes: Map<string, ProcessData>, t
 
         const [timestamp, pid, name, heapUsed, heapCap, rss] = parts.map(p => p.trim());
         const rssValue = parseFloat(rss.replace('MB', ''));
+        const processKey = `${pid}-${name}`;
 
-        if (!processes.has(name)) {
-            processes.set(name, { timestamps: [], rss: [] });
+        if (!processes.has(processKey)) {
+            processes.set(processKey, { timestamps: [], rss: [] });
         }
 
-        processes.get(name)!.timestamps.push(timestamp);
-        processes.get(name)!.rss.push(rssValue);
+        processes.get(processKey)!.timestamps.push(timestamp);
+        processes.get(processKey)!.rss.push(rssValue);
         timestamps.add(timestamp);
     });
 
@@ -55,26 +56,26 @@ flowchart LR
         direction TB
         ${sampledTimestamps.map((timestamp, i) => {
             return `    subgraph T${i}["${timestamp}"]
-            ${Array.from(processes.entries()).map(([name, data]) => {
+            ${Array.from(processes.entries()).map(([key, data]) => {
                 const idx = data.timestamps.indexOf(timestamp);
                 if (idx === -1) return '';
                 const rss = data.rss[idx];
-                const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
-                return `        ${cleanName}_${i}["${name}<br/>${rss.toFixed(0)}MB"]`;
+                const cleanKey = key.replace(/[^a-zA-Z0-9]/g, '_');
+                return `        ${cleanKey}_${i}["${key}<br/>${rss.toFixed(0)}MB"]`;
             }).filter(Boolean).join('\n        ')}
             ${`        Agg_${i}["Aggregated<br/>${aggregatedRss[i].toFixed(0)}MB"]`}
         end`;
         }).join('\n        ')}
     end
 
-    ${Array.from(processes.entries()).map(([name, data]) => {
-        const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
+    ${Array.from(processes.entries()).map(([key, data]) => {
+        const cleanKey = key.replace(/[^a-zA-Z0-9]/g, '_');
         return sampledTimestamps.map((timestamp, i) => {
             if (i === 0) return '';
             const prevIdx = data.timestamps.indexOf(sampledTimestamps[i-1]);
             const currIdx = data.timestamps.indexOf(timestamp);
             if (prevIdx === -1 || currIdx === -1) return '';
-            return `    ${cleanName}_${i-1} --> ${cleanName}_${i}`;
+            return `    ${cleanKey}_${i-1} --> ${cleanKey}_${i}`;
         }).filter(Boolean).join('\n    ');
     }).join('\n    ')}
 
@@ -85,21 +86,21 @@ flowchart LR
     
     classDef process fill:#4ECDC4,stroke:#333,stroke-width:2px
     classDef aggregated fill:#FF6B6B,stroke:#333,stroke-width:2px
-    ${Array.from(processes.keys()).map(name => {
-        const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
-        return `class ${cleanName} process`;
+    ${Array.from(processes.keys()).map(key => {
+        const cleanKey = key.replace(/[^a-zA-Z0-9]/g, '_');
+        return `class ${cleanKey} process`;
     }).join('\n    ')}
     ${sampledTimestamps.map((_, i) => `class Agg_${i} aggregated`).join('\n    ')}`;
 }
 
 function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]): string {
-    const width = 1400;  // Increased width
+    const width = 1400;
     const height = 800;
     const margin = {
         top: 60,
-        right: 300,  // Increased for legend
+        right: 300,
         bottom: 100,
-        left: 100    // Increased for y-axis labels
+        left: 100
     };
 
     // Calculate aggregated RSS first to determine true max value
@@ -120,7 +121,7 @@ function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]):
     const yScale = (height - margin.top - margin.bottom) / yAxisMax;
 
     // Colors for different processes
-    const colors = ['#FF9B9B', '#4ECDC4', '#45B7D1'];
+    const colors = ['#FF9B9B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5'];
 
     // Generate SVG content
     let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">\n`;
@@ -163,7 +164,7 @@ function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]):
             fill="white" stroke="#e0e0e0"/>\n`;
 
     // Draw process lines and legend
-    Array.from(processes.entries()).forEach(([name, data], idx) => {
+    Array.from(processes.entries()).forEach(([key, data], idx) => {
         const points = data.timestamps.map((timestamp, i) => {
             const x = margin.left + (timestamps.indexOf(timestamp) * xScale);
             const y = height - margin.bottom - (data.rss[i] * yScale);
@@ -179,7 +180,7 @@ function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]):
         svg += `<rect x="${width - margin.right + 40}" y="${legendY - 10}" width="20" height="20" 
                 fill="${colors[idx % colors.length]}" opacity="0.8"/>\n`;
         svg += `<text x="${width - margin.right + 70}" y="${legendY + 5}" 
-                font-size="14">${name}</text>\n`;
+                font-size="14">${key}</text>\n`;
     });
 
     // Draw aggregated line
@@ -266,11 +267,11 @@ ${mermaidChart}
 \`\`\`
 
 ### Process Details
-${Array.from(processes.entries()).map(([name, data]) => {
+${Array.from(processes.entries()).map(([key, data]) => {
     const maxProcessRss = Math.max(...data.rss);
     const avgProcessRss = data.rss.reduce((a, b) => a + b, 0) / data.rss.length;
     const lastRss = data.rss[data.rss.length - 1];
-    return `#### ${name}
+    return `#### ${key}
 - Maximum RSS: ${maxProcessRss.toFixed(2)} MB
 - Average RSS: ${avgProcessRss.toFixed(2)} MB
 - Number of measurements: ${data.rss.length}
