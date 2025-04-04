@@ -262,14 +262,17 @@ async function run() {
 ## Memory Usage Analysis
 
 ### Overview
-- Number of processes monitored: ${processCount}
-- Maximum RSS observed: ${maxRss.toFixed(2)} MB
-- Monitoring duration: ${duration}
-
 ### Memory Usage Graph
 \`\`\`mermaid
 ${mermaidChart}
 \`\`\`
+
+
+- Number of processes monitored: ${processCount}
+- Maximum RSS observed: ${maxRss.toFixed(2)} MB
+- Monitoring duration: ${duration}
+
+
 
 ### Process Details
 ${Array.from(processes.entries()).map(([key, data]) => {
