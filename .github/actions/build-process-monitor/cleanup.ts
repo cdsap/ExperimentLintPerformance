@@ -39,8 +39,13 @@ function parseLogFile(logFile: string): { processes: Map<string, ProcessData>, t
 }
 
 function generateMermaidChart(processes: Map<string, ProcessData>, timestamps: string[]): string {
-    // Sample points to avoid overcrowding (show ~6 points)
-    const interval = Math.ceil(timestamps.length / 6);
+    // Sample points based on data length:
+    // - For short logs (< 30 points): show all points
+    // - For medium logs (30-100 points): show ~20 points
+    // - For long logs (> 100 points): show ~30 points
+    const targetPoints = timestamps.length < 30 ? timestamps.length : 
+                        timestamps.length < 100 ? 20 : 30;
+    const interval = Math.ceil(timestamps.length / targetPoints);
     const sampledTimestamps = timestamps.filter((_, i) => i % interval === 0);
     
     // Calculate aggregated RSS for each timestamp
