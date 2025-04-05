@@ -1,0 +1,20 @@
+name: "Java Memory Monitor (Composite)"
+description: "Tracks memory usage with guaranteed cleanup (even on cancellation)"
+
+inputs:
+  interval:
+    description: "Polling interval in seconds"
+    required: false
+    default: "5"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Start Java memory monitor
+      run: node ${{ github.action_path }}/../dist/index.js
+      shell: bash
+
+    - name: Register cleanup
+      if: always()
+      run: node ${{ github.action_path }}/../dist/cleanup.js
+      shell: bash

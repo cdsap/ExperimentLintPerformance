@@ -1,36 +1,33 @@
 #!/bin/bash
 
-set -x  # Enable command tracing
+set -xe  # Exit immediately on error, print commands as they run
 
-# Clean and create dist directory
+# Clean and recreate dist directory
 rm -rf dist
 mkdir -p dist
 
-# Build index.ts
-echo "Building index.ts..."
-npx ncc build index.ts -o dist
+# Build src/index.ts -> dist/index.js
+echo "Building src/index.ts..."
+npx ncc build src/index.ts -o dist || { echo "❌ Failed to build src/index.ts"; exit 1; }
 
-# Build cleanup.ts
-echo "Building cleanup.ts..."
-npx ncc build cleanup.ts -o dist-cleanup
-mv dist-cleanup/index.js dist/cleanup.js
-rm -rf dist-cleanup
+# Build src/cleanup.ts -> dist/cleanup.js
+echo "Building src/cleanup.ts..."
+npx ncc build src/cleanup.ts -o dist-tmp || { echo "❌ Failed to build src/cleanup.ts"; exit 1; }
 
-# Copy and make monitor script executable
+mv dist-tmp/index.js dist/cleanup.js || { echo "❌ dist-tmp/index.js not found"; exit 1; }
+rm -rf dist-tmp
+
+# Copy monitor.sh and make it executable
 cp monitor.sh dist/
 chmod +x dist/monitor.sh
 
-# Final verification
-echo "Final contents of dist directory:"
+# Final directory listing
+echo "✅ Final contents of dist directory:"
 ls -la dist/
 
-# Verify file contents exist
-if [ ! -f "dist/index.js" ]; then
-    echo "ERROR: dist/index.js is missing!"
-    exit 1
-fi
+# Sanity checks
+[ -f "dist/index.js" ]     || { echo "❌ ERROR: dist/index.js is missing!"; exit 1; }
+[ -f "dist/cleanup.js" ]   || { echo "❌ ERROR: dist/cleanup.js is missing!"; exit 1; }
+[ -f "dist/monitor.sh" ]   || { echo "❌ ERROR: dist/monitor.sh is missing!"; exit 1; }
 
-if [ ! -f "dist/cleanup.js" ]; then
-    echo "ERROR: dist/cleanup.js is missing!"
-    exit 1
-fi 
+echo "✅ Build completed successfully."

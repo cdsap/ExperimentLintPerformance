@@ -14,7 +14,7 @@
   },
   "include": [
     "*.ts"
-  ],
+, "src/index.ts", "src/cleanup.ts"  ],
   "exclude": [
     "node_modules",
     "dist"
