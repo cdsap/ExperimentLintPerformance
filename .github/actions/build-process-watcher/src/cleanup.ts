@@ -132,7 +132,7 @@ function generateSvg(processes: Map<string, ProcessData>, timestamps: string[]):
     let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">\n`;
     
     // Add title with better positioning
-    svg += `<text x="${width/2}" y="40" text-anchor="middle" font-size="24" font-weight="bold">Java Process Memory Usage Over Time</text>\n`;
+    svg += `<text x="${width/2}" y="40" text-anchor="middle" font-size="24" font-weight="bold">Build Process Memory Usage Over Time</text>\n`;
 
     // Add grid lines (every 500MB)
     const gridInterval = 500; // MB
@@ -227,7 +227,7 @@ async function run() {
 
         // Parse log file
         console.log('Generating memory usage graph...');
-        const { processes, timestamps } = parseLogFile('java_mem_monitor.log');
+        const { processes, timestamps } = parseLogFile('build_process_watcher.log');
         
         // Generate both charts
         const mermaidChart = generateMermaidChart(processes, timestamps);
@@ -238,8 +238,8 @@ async function run() {
 
         // Upload artifacts
         const artifactClient = new DefaultArtifactClient();
-        const artifactName = 'java-memory-monitor';
-        const files = ['java_mem_monitor.log', 'memory_usage.svg'];
+        const artifactName = `build_process_watcher-${process.env.GITHUB_JOB || 'default'}`;
+        const files = ['build_process_watcher.log', 'memory_usage.svg'];
         const rootDirectory = '.';
 
         console.log('Uploading artifacts...');

@@ -4,7 +4,7 @@ set -euo pipefail  # safer scripting: exit on error, unset vars, pipe errors
 
 INTERVAL="${1:-5}"
 PATTERNS=("GradleDaemon" "KotlinCompileDaemon" "GradleWorkerMain")
-LOG_FILE="java_mem_monitor.log"
+LOG_FILE="build_process_watcher.log"
 PID_FILE="monitor.pid"
 
 # Store start time
