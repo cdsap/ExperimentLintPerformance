@@ -33,7 +33,7 @@ jobs:
                   java-version: 17
 
             - name: Start Build Process Watcher
-              uses: ./.github/actions/build-process-watcher/
+              uses: cdsap/build-process-watcher@v0.1
               with:
                 interval: 5
 
