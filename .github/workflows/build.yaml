@@ -43,7 +43,3 @@ jobs:
                 touch .build_complete
               env:
                 GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
-
-            - name: Cleanup Java Memory Monitor
-              if: always()
-              uses: ./.github/actions/build-process-monitor/cleanup
