@@ -1,18 +1,27 @@
 #!/bin/bash
 
+set -euo pipefail  # safer scripting: exit on error, unset vars, pipe errors
+
 INTERVAL="${1:-5}"
 PATTERNS=("GradleDaemon" "KotlinCompileDaemon" "GradleWorkerMain")
 LOG_FILE="java_mem_monitor.log"
-
-# Create PID file
-echo $$ > monitor.pid
+PID_FILE="monitor.pid"
 
 # Store start time
 START_TIME=$(date +%s)
 
+# Trap graceful shutdown (SIGTERM, SIGINT)
+trap 'echo "💥 Monitor received termination signal. Running cleanup."; node dist/cleanup.js; exit' TERM INT
+trap 'echo "🧹 Monitor exiting normally. Running cleanup."; node dist/cleanup.js' EXIT
+
+# Create PID file
+echo $$ > "$PID_FILE"
+
+# Start logging
 echo "Starting memory monitor at $(date)" > "$LOG_FILE"
 echo "Elapsed_Time | PID | Name | Heap_Used_MB | Heap_Capacity_MB | RSS_MB" >> "$LOG_FILE"
 
+# Main loop
 while true; do
   CURRENT_TIME=$(date +%s)
   ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
