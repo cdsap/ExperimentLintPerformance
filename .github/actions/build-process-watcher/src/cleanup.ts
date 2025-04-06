@@ -259,15 +259,14 @@ async function run() {
 
             const newSummary = `${summary}
 
-## Memory Usage Analysis
+## Build Process Analysis
 
-### Overview
-### Memory Usage Graph
+### Build Process Graph
 \`\`\`mermaid
 ${mermaidChart}
 \`\`\`
 
-
+### Overview
 - Number of processes monitored: ${processCount}
 - Maximum RSS observed: ${maxRss.toFixed(2)} MB
 - Monitoring duration: ${duration}
