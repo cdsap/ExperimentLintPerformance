@@ -33,13 +33,12 @@ jobs:
                   java-version: 17
 
             - name: Start Java Memory Monitor
-              uses: ./.github/actions/build-process-monitor/start
+              uses: ./.github/actions/build-process-watcher/
               with:
                 interval: 5
 
             - name: Check build-logic
               run: |
-                ./gradlew lintDebug
-                touch .build_complete
+                ./gradlew help
               env:
                 GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}

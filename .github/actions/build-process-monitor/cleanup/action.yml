@@ -1,6 +1,0 @@
-name: "Java Memory Monitor Cleanup"
-description: "Performs final cleanup and chart generation for Java memory monitor"
-
-runs:
-  using: "node20"
-  main: "../dist/cleanup.js"
